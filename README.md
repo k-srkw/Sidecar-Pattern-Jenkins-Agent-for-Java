@@ -132,9 +132,17 @@ status:
     oc run java --image=image-registry.openshift-image-registry.svc:5000/pipeline-environment/custom-jenkins-agent-sidecar:openjdk-8-ubi8 -it --rm --overrides='{"spec":{"securityContext":{"runAsUser":0}}}' --command -- /bin/bash
     ```
 
-## Adding customized Jenkins Agent from ConfigMap
+## Adding customized Jenkins Agent to pipeline
 
-### Creating a Pod Template
+Jenkinsfile に定義したパイプラインでカスタムの Jenkins Agent を使用する方法は以下のいずれかとなります。
+
+- Pod Template (XML) を含む ConfigMap を作成
+- Jenkinsfile に Inline で Pod Manifest を定義 (YAML)
+- ファイルに Pod Manifest を定義 (YAML) し、Jenkinsfile で参照する
+
+### Adding customized Jenkins Agent from ConfigMap
+
+#### Creating a Pod Template
 
 [jenkins-agents-configmap.yaml](jenkins-agents-configmap.yaml) に定義した Pod Template を含む ConfigMap を作成します。  
 ラベル `role: jenkins-agent` を指定することで OpenShift Sync Plugin により ConfigMap 内の Pod Template が Jenkins Server に同期されます。
@@ -143,7 +151,7 @@ status:
 oc -n pipeline-environment apply -f jenkins-agents-configmap.yaml
 ```
 
-### Creating Jenkins Job
+#### Creating Jenkins Job
 
 ConfigMap に定義した Pod Template を利用する Jenkinsfile は [agent-from-configmap-jenkinsfile.groovy](agent-from-configmap-jenkinsfile.groovy) に定義しています。  
 Pod Template の `<label>custom-java-builder</label>` で定義した Agent のラベルを以下のように指定しています。
@@ -178,9 +186,9 @@ Jenkins Server 上でのパイプラインの作成は以下の手順で実施�
         - ビルドするブランチ > ブランチ指定子 : `*/main`
     - Script Path : `agent-from-configmap-jenkinsfile.groovy`
 
-## Adding customized Jenkins Agent from Inline
+### Adding customized Jenkins Agent from Inline
 
-### Creating a Pod Template
+#### Creating a Pod Template
 
 Jenkinsfile 内に以下のように Inline で Pod Template を定義します。Yaml フォーマットで Pod Manifest を定義します。  
 `defaultContainer` を設定することで各 `step` 実行時に実行対象のコンテナを指定しなかった場合に利用するコンテナを指定できます。
@@ -212,7 +220,7 @@ spec:
     }
 ```
 
-### Creating Jenkins Job
+#### Creating Jenkins Job
 
 Inline で定義した Pod Template を利用する Jenkinsfile は [agent-from-inline-jenkinsfile.groovy](agent-from-inline-jenkinsfile.groovy) に定義しています。  
 Jenkins Server 上でのパイプラインの作成は以下の手順で実施できます。
@@ -225,9 +233,9 @@ Jenkins Server 上でのパイプラインの作成は以下の手順で実施�
         - ビルドするブランチ > ブランチ指定子 : `*/main`
     - Script Path : `agent-from-inline-jenkinsfile.groovy`
 
-## Adding customized Jenkins Agent from File
+### Adding customized Jenkins Agent from File
 
-### Creating a Pod Template
+#### Creating a Pod Template
 
 Jenkinsfile 内に以下のように Pod Template 参照を定義します。参照先ファイルの [jenkins-agent-pod.yaml](jenkins-agent-pod.yaml) では Yaml フォーマットで Pod Manifest を定義します。  
 `defaultContainer` を設定することで各 `step` 実行時に実行対象のコンテナを指定しなかった場合に利用するコンテナを指定できます。
@@ -242,7 +250,7 @@ Jenkinsfile 内に以下のように Pod Template 参照を定義します。参
     }
 ```
 
-### Creating Jenkins Job
+#### Creating Jenkins Job
 
 別ファイルに定義した Pod Template を利用する Jenkinsfile は [agent-from-yamlfile-jenkinsfile.groovy](agent-from-yamlfile-jenkinsfile.groovy) に定義しています。  
 Jenkins Server 上でのパイプラインの作成は以下の手順で実施できます。
