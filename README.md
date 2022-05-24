@@ -59,7 +59,60 @@ RHEL サブスクリプションの登録なしに RHEL パッケージのサブ
 格納先および ImageStreamTag の情報は `java` ImageStream から以下のように確認できます。
 
 ```
-oc -n openshift get is java -oyaml
+$ oc -n openshift get is java -oyaml
+<省略>
+status:
+  dockerImageRepository: image-registry.openshift-image-registry.svc:5000/openshift/java
+  publicDockerImageRepository: default-route-openshift-image-registry.apps.cluster-b5dqk.b5dqk.sandbox1734.opentlc.com/openshift/java
+  tags:
+  - items:
+    - created: "2022-05-24T04:20:58Z"
+      dockerImageReference: registry.redhat.io/openjdk/openjdk-11-rhel7@sha256:a55ede0c4b60edc130e7ecc54d34b695a8807c8b23dc85a3ef100964da1f65aa
+      generation: 2
+      image: sha256:a55ede0c4b60edc130e7ecc54d34b695a8807c8b23dc85a3ef100964da1f65aa
+    tag: "11"
+  - items:
+    - created: "2022-05-24T04:20:58Z"
+      dockerImageReference: registry.redhat.io/redhat-openjdk-18/openjdk18-openshift@sha256:a98257afea2078d3423168c5d5c51655c748ba29bf11ea1b4799237a65cf8a66
+      generation: 2
+      image: sha256:a98257afea2078d3423168c5d5c51655c748ba29bf11ea1b4799237a65cf8a66
+    tag: "8"
+  - items:
+    - created: "2022-05-24T04:20:58Z"
+      dockerImageReference: registry.redhat.io/ubi8/openjdk-17@sha256:578c01aa5439b0f054490f51f384009120eee5ce0f8ab457764e731243e23863
+      generation: 2
+      image: sha256:578c01aa5439b0f054490f51f384009120eee5ce0f8ab457764e731243e23863
+    tag: latest
+  - items:
+    - created: "2022-05-24T04:20:58Z"
+      dockerImageReference: registry.redhat.io/openjdk/openjdk-11-rhel7@sha256:a55ede0c4b60edc130e7ecc54d34b695a8807c8b23dc85a3ef100964da1f65aa
+      generation: 2
+      image: sha256:a55ede0c4b60edc130e7ecc54d34b695a8807c8b23dc85a3ef100964da1f65aa
+    tag: openjdk-11-el7
+  - items:
+    - created: "2022-05-24T04:20:58Z"
+      dockerImageReference: registry.redhat.io/ubi8/openjdk-11@sha256:292ddb499cc3eb759482e31d4b2f948f5312e4316d21d11d2d8a7b2e6ef13315
+      generation: 2
+      image: sha256:292ddb499cc3eb759482e31d4b2f948f5312e4316d21d11d2d8a7b2e6ef13315
+    tag: openjdk-11-ubi8
+  - items:
+    - created: "2022-05-24T04:20:58Z"
+      dockerImageReference: registry.redhat.io/ubi8/openjdk-17@sha256:578c01aa5439b0f054490f51f384009120eee5ce0f8ab457764e731243e23863
+      generation: 2
+      image: sha256:578c01aa5439b0f054490f51f384009120eee5ce0f8ab457764e731243e23863
+    tag: openjdk-17-ubi8
+  - items:
+    - created: "2022-05-24T04:20:58Z"
+      dockerImageReference: registry.redhat.io/redhat-openjdk-18/openjdk18-openshift@sha256:a98257afea2078d3423168c5d5c51655c748ba29bf11ea1b4799237a65cf8a66
+      generation: 2
+      image: sha256:a98257afea2078d3423168c5d5c51655c748ba29bf11ea1b4799237a65cf8a66
+    tag: openjdk-8-el7
+  - items:
+    - created: "2022-05-24T04:20:58Z"
+      dockerImageReference: registry.redhat.io/ubi8/openjdk-8@sha256:a6a912a16608a3265bee6d66d3610a965ffbd33702aa4bbb181a7fab17e2438f
+      generation: 2
+      image: sha256:a6a912a16608a3265bee6d66d3610a965ffbd33702aa4bbb181a7fab17e2438f
+    tag: openjdk-8-ubi8
 ```
 
 ### To debug image (or base image) for Jenkins Agent sidecar container
