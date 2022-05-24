@@ -33,7 +33,7 @@ data:
         </org.csanchez.jenkins.plugins.kubernetes.ContainerTemplate>
         <org.csanchez.jenkins.plugins.kubernetes.ContainerTemplate>
           <name>java</name>
-          <image>image-registry.openshift-image-registry.svc:5000/openshift/java:latest</image>
+          <image>image-registry.openshift-image-registry.svc:5000/pipeline-environment/custom-jenkins-agent-sidecar:openjdk-8-ubi8</image>
           <privileged>false</privileged>
           <alwaysPullImage>true</alwaysPullImage>
           <workingDir>/home/jenkins/agent</workingDir>

@@ -1,0 +1,27 @@
+---
+kind: BuildConfig
+apiVersion: build.openshift.io/v1
+metadata:
+  name: custom-jenkins-agent-sidecar
+  labels:
+    name: custom-jenkins-agent-sidecar
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: "custom-jenkins-agent-sidecar:openjdk-8-ubi8"
+  resources: {}
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+  source:
+    type: Git
+    git:
+      uri: https://github.com/k-srkw/Sidecar-Pattern-Jenkins-Agent-for-Java.git
+      ref: main
+---
+kind: ImageStream
+apiVersion: image.openshift.io/v1
+metadata:
+  name: custom-jenkins-agent-sidecar

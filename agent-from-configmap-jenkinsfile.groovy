@@ -8,6 +8,8 @@ pipeline {
                 container("java") {
                     sh "java -version"
                     sh "mvn --version"
+                    sh "jq --version"
+                    sh "skopeo --version"
                 }
             }
         }
