@@ -4,6 +4,8 @@
 
 ### Enabling monitoring for user-defined projects (Optional)
 
+Jenkins Server のメトリクスを Prometheus で監視する場合、 [Monitoring for user-defined projects](https://docs.openshift.com/container-platform/4.10/monitoring/enabling-monitoring-for-user-defined-projects.html) を有効化します。
+
 ```
 oc apply -f cluster-monitoring-config.yaml
 ```
@@ -16,32 +18,54 @@ oc new-project pipeline-environment
 
 ### Creating a Jenkins service from a template
 
+Jenkins Server のメトリクスを Prometheus で監視する場合は `jenkins-persistent-monitored` または `jenkins-ephemeral-monitored` を利用します。  
+監視が不要な場合は `jenkins-persistent` または `jenkins-ephemeral` を利用します。
+
+パラメータは必要に応じて変更してください。
+
 ```
 oc process openshift//jenkins-persistent-monitored -p VOLUME_CAPACITY=2Gi | oc -n pipeline-environment apply -f -
 ```
 
 ### Accessing a Jenkins service
 
+Jenkins Server の URL を確認し、ブラウザからアクセスできることを確認します。
+
 ```
 echo https://$(oc -n pipeline-environment get route jenkins -ojsonpath='{.spec.host}')/
 ```
 
-## Adding customized Jenkins Agent from ConfigMap
+## Building customized Jenkins Agent sidecar image
 
-### Building customized Jenkins Agent sidecar image
+OpenShift 4.10 以降で推奨される [Sidecar パターンを採用した Jenkins Agent Pod Template](https://docs.openshift.com/container-platform/4.10/openshift_images/using_images/images-other-jenkins.html#images-other-jenkins-config-kubernetes_images-other-jenkins) を利用するために、カスタムの Sidecar コンテナイメージを作成します。  
+このサンプルでのカスタム Jenkins Agent Pod の構成は以下となります。
+
+- jnlp : JNLP プロトコルで Jenkins Server と通信するコンテナ 
+- java : OpenJDK、Maven に加え jq、skopeo を追加した Sidecar コンテナ。実際のパイプラインの処理を担当する。
+
+このサンプルではカスタムの Sidecar コンテナイメージを BuildConfig により OpenShift 上でビルドします。  
+BuildConfig および ImageStream は [custom-jenkins-agent-sidecar-build.yaml](custom-jenkins-agent-sidecar-build.yaml) に定義しています。  
+BuildConfig では Docker Strategy により [Dockerfile](Dockerfile) でビルドを行います。
 
 ```
 oc -n pipeline-environment apply -f custom-jenkins-agent-sidecar-build.yaml
 oc -n pipeline-environment start-build custom-jenkins-agent-sidecar
 ```
 
-### Creating a Pod Template
+サンプルのカスタム Sidecar コンテナのベースイメージは [Universal Base Images (UBI)](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/building_running_and_managing_containers/assembly_types-of-container-images_building-running-and-managing-containers#con_characteristics-of-ubi-images_assembly_types-of-container-images) をベースとした [ubi8/openjdk-8](https://catalog.redhat.com/software/containers/ubi8/openjdk-8/5dd6a48dbed8bd164a09589a) イメージを利用します。  
+RHEL サブスクリプションの登録なしに RHEL パッケージのサブセットである `ubi-8-baseos` および `ubi-8-appstream` リポジトリが利用できるため、 UBI ベースのベースイメージを採用しています。
+
+`ubi8/openjdk-8` イメージは Cluster Samples Operator の設定で `managementState` が `Managed` となっている場合 OpenShift の内部レジストリに格納され、 `java` ImageStream で管理されるためこれを利用します。  
+格納先および ImageStreamTag の情報は `java` ImageStream から以下のように確認できます。
 
 ```
-oc -n pipeline-environment apply -f jenkins-agents-configmap.yaml
+oc -n openshift get is java -oyaml
 ```
 
 ### To debug image (or base image) for Jenkins Agent sidecar container
+
+カスタムの Sidecar コンテナイメージビルド時に Dockerfile の定義を検証したい場合、ベースイメージから root ユーザでコンテナを起動し検証を行います。  
+すでに作成したカスタムの Sidecar コンテナイメージの動作確認をしたい場合は Sidecar コンテナを起動し動作確認を行います。
 
 - Base Image
 
@@ -55,4 +79,125 @@ oc -n pipeline-environment apply -f jenkins-agents-configmap.yaml
     oc run java --image=image-registry.openshift-image-registry.svc:5000/pipeline-environment/custom-jenkins-agent-sidecar:openjdk-8-ubi8 -it --rm --overrides='{"spec":{"securityContext":{"runAsUser":0}}}' --command -- /bin/bash
     ```
 
-## Creating Jenkins Job
+## Adding customized Jenkins Agent from ConfigMap
+
+### Creating a Pod Template
+
+[jenkins-agents-configmap.yaml](jenkins-agents-configmap.yaml) に定義した Pod Template を含む ConfigMap を作成します。  
+ラベル `role: jenkins-agent` を指定することで OpenShift Sync Plugin により ConfigMap 内の Pod Template が Jenkins Server に同期されます。
+
+```
+oc -n pipeline-environment apply -f jenkins-agents-configmap.yaml
+```
+
+### Creating Jenkins Job
+
+ConfigMap に定義した Pod Template を利用する Jenkinsfile は [agent-from-configmap-jenkinsfile.groovy](agent-from-configmap-jenkinsfile.groovy) に定義しています。  
+Pod Template の `<label>custom-java-builder</label>` で定義した Agent のラベルを以下のように指定しています。
+
+```groovy
+    agent {
+        label 'custom-java-builder'
+    }
+```
+
+また、 Pod にコンテナが複数含まれるため以下のように `step` の処理をどのコンテナが実行するか指定する必要があります。
+
+```groovy
+    stages {
+        stage('Main') {
+            steps {
+                container("java") {
+                    ...
+                }
+            }
+        }
+    }
+```
+
+Jenkins Server 上でのパイプラインの作成は以下の手順で実施できます。
+
+1. Jenkins UI 上で「新規ジョブ作成」を選択し、「Enter an item name」にパイプライン名を入力します。ジョブの種別で「パイプライン」を選択し、「OK」を押します。
+2. 作成されたパイプラインの設定画面にて「パイプライン」→「定義」でプルダウンリストから「Pipeline script from SCM」を選択します。選択後表示される各項目に以下のように設定を行い、「保存」を押します。
+    - SCM : Git
+      - リポジトリ
+        - リポジトリURL : `https://github.com/k-srkw/Sidecar-Pattern-Jenkins-Agent-for-Java.git`
+        - ビルドするブランチ > ブランチ指定子 : `*/main`
+    - Script Path : `agent-from-configmap-jenkinsfile.groovy`
+
+## Adding customized Jenkins Agent from Inline
+
+### Creating a Pod Template
+
+Jenkinsfile 内に以下のように Inline で Pod Template を定義します。Yaml フォーマットで Pod Manifest を定義します。  
+`defaultContainer` を設定することで各 `step` 実行時に実行対象のコンテナを指定しなかった場合に利用するコンテナを指定できます。
+
+```groovy
+    agent {
+        kubernetes {
+            cloud 'openshift'
+            yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: jnlp
+    image: image-registry.openshift-image-registry.svc:5000/openshift/jenkins-agent-base:latest
+    imagePullPolicy: Always
+    workingDir: /home/jenkins/agent
+    args: ['\$(JENKINS_SECRET)', '\$(JENKINS_NAME)']
+  - name: java
+    image: image-registry.openshift-image-registry.svc:5000/pipeline-environment/custom-jenkins-agent-sidecar:openjdk-8-ubi8
+    imagePullPolicy: Always
+    workingDir: /home/jenkins/agent
+    command:
+    - cat
+    tty: true
+'''
+            defaultContainer 'java'
+        }
+    }
+```
+
+### Creating Jenkins Job
+
+Inline で定義した Pod Template を利用する Jenkinsfile は [agent-from-inline-jenkinsfile.groovy](agent-from-inline-jenkinsfile.groovy) に定義しています。  
+Jenkins Server 上でのパイプラインの作成は以下の手順で実施できます。
+
+1. Jenkins UI 上で「新規ジョブ作成」を選択し、「Enter an item name」にパイプライン名を入力します。ジョブの種別で「パイプライン」を選択し、「OK」を押します。
+2. 作成されたパイプラインの設定画面にて「パイプライン」→「定義」でプルダウンリストから「Pipeline script from SCM」を選択します。選択後表示される各項目に以下のように設定を行い、「保存」を押します。
+    - SCM : Git
+      - リポジトリ
+        - リポジトリURL : `https://github.com/k-srkw/Sidecar-Pattern-Jenkins-Agent-for-Java.git`
+        - ビルドするブランチ > ブランチ指定子 : `*/main`
+    - Script Path : `agent-from-inline-jenkinsfile.groovy`
+
+## Adding customized Jenkins Agent from File
+
+### Creating a Pod Template
+
+Jenkinsfile 内に以下のように Pod Template 参照を定義します。参照先ファイルの [jenkins-agent-pod.yaml](jenkins-agent-pod.yaml) では Yaml フォーマットで Pod Manifest を定義します。  
+`defaultContainer` を設定することで各 `step` 実行時に実行対象のコンテナを指定しなかった場合に利用するコンテナを指定できます。
+
+```groovy
+    agent {
+        kubernetes {
+            cloud 'openshift'
+            yamlFile 'jenkins-agent-pod.yaml'
+            defaultContainer 'java'
+        }
+    }
+```
+
+### Creating Jenkins Job
+
+別ファイルに定義した Pod Template を利用する Jenkinsfile は [agent-from-yamlfile-jenkinsfile.groovy](agent-from-yamlfile-jenkinsfile.groovy) に定義しています。  
+Jenkins Server 上でのパイプラインの作成は以下の手順で実施できます。
+
+1. Jenkins UI 上で「新規ジョブ作成」を選択し、「Enter an item name」にパイプライン名を入力します。ジョブの種別で「パイプライン」を選択し、「OK」を押します。
+2. 作成されたパイプラインの設定画面にて「パイプライン」→「定義」でプルダウンリストから「Pipeline script from SCM」を選択します。選択後表示される各項目に以下のように設定を行い、「保存」を押します。
+    - SCM : Git
+      - リポジトリ
+        - リポジトリURL : `https://github.com/k-srkw/Sidecar-Pattern-Jenkins-Agent-for-Java.git`
+        - ビルドするブランチ > ブランチ指定子 : `*/main`
+    - Script Path : `agent-from-yamlfile-jenkinsfile.groovy`
