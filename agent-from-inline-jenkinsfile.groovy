@@ -3,6 +3,7 @@ pipeline {
         kubernetes {
             cloud 'openshift'
             yaml '''
+apiVersion: v1
 kind: Pod
 spec:
   containers:
