@@ -1,0 +1,24 @@
+schemaVersion: 2.1.0
+metadata:
+  name: sidecar-pattern-jenkins-agent-for-java
+  namespace: opentlc-mgr-devspaces
+projects:
+  - git:
+      remotes:
+        origin: 'https://github.com/k-srkw/sidecar-pattern-jenkins-agent-for-java.git'
+    name: sidecar-pattern-jenkins-agent-for-java
+components:
+  - container:
+      args:
+        - tail
+        - '-f'
+        - /dev/null
+      image: 'quay.io/kshiraka/custom-web-terminal-tooling-rhel8:1.5-custom'
+      memoryLimit: 256Mi
+      mountSources: true
+      sourceMapping: /projects
+    name: wto
+  - container:
+      image: 'registry.redhat.io/devspaces/udi-rhel8:3.0-22.1655394276'
+      sourceMapping: /projects
+    name: tools
