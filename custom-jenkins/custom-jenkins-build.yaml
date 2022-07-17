@@ -7,7 +7,7 @@ spec:
   source:
     git:
       uri: https://github.com/k-srkw/sidecar-pattern-jenkins-agent-for-java.git
-      ref: main
+      ref: air-gapped-env
     contextDir: custom-jenkins 
     type: Git
   strategy:
