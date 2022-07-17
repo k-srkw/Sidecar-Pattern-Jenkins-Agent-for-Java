@@ -74,6 +74,8 @@ oc import-image ocp-tools-4/jenkins-rhel8:v4.10.0 --from=registry.redhat.io/ocp-
 
 ネットワーク的に隔離された環境の場合、インストールしたいプラグインおよびその依存プラグインも含め Git リポジトリ上にプラグインファイルを格納しておく必要があります。
 
+最も推奨する方法は事前にインターネットアクセス可能な環境で `plugins.txt` を作成し、ビルド時ログの `Installed plugins:` 以下に出力される依存プラグインを確認後、それをもとに事前ダウンロードしておく方法です。 `plugins.txt` に定義したプラグインのリストをもとに Jenkins Update Site からプラグインを取得する際、プラグインの依存関係を解決自動で取得します。
+
 以下の方法である程度格納が必要な依存プラグインを確認することができます。
 
 1. [Plugins Index](https://plugins.jenkins.io/) でインストールしたいプラグインを検索
