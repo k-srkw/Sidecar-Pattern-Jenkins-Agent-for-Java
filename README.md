@@ -21,11 +21,68 @@ oc new-project pipeline-environment
 Jenkins Server のメトリクスを Prometheus で監視する場合は `jenkins-persistent-monitored` または `jenkins-ephemeral-monitored` を利用します。  
 監視が不要な場合は `jenkins-persistent` または `jenkins-ephemeral` を利用します。
 
-パラメータは必要に応じて変更してください。
+デフォルトで Cluster Samples Operator が管理する Jenkins Image Stream を利用しますが、必要に応じて最新の Jenkins Server イメージを利用してください。
 
 ```
-oc process openshift//jenkins-persistent-monitored -p VOLUME_CAPACITY=2Gi | oc -n pipeline-environment apply -f -
+oc import-image ocp-tools-4/jenkins-rhel8:v4.10.0 --from=registry.redhat.io/ocp-tools-4/jenkins-rhel8:v4.10.0 --confirm
 ```
+
+- Jenkins Plugin の追加や更新を行わない場合
+
+    以下は Cluster Samples Operator が管理する Jenkins Image Stream (`jenkins:2`) を利用する例です。パラメータは必要に応じて変更してください。
+
+    ```
+    oc process openshift//jenkins-persistent-monitored \
+      -p VOLUME_CAPACITY=2Gi \
+      | oc -n pipeline-environment apply -f -
+    ```
+
+    以下は import した最新の Jenkins イメージを利用する例です。
+
+    ```
+    oc process openshift//jenkins-persistent-monitored \
+      -p VOLUME_CAPACITY=2Gi \
+      -p NAMESPACE=pipeline-environment \
+      -p JENKINS_IMAGE_STREAM_TAG=ocp-tools-4/jenkins-rhel8:v4.10.0 \
+      | oc -n pipeline-environment apply -f -
+    ```
+
+- Jenkins Plugin を追加、更新する場合
+
+    S2I ビルドにより必要なプラグインを追加したカスタム　Jenkins イメージを作成します。  
+    この Git リポジトリ上からプラグインを取得します。このリポジトリでは例として [Pipeline Stage View Plugin](https://plugins.jenkins.io/pipeline-stage-view/#documentation) をインストールします。
+    
+    - `plugins.txt` : Jenkins Update Site からダウンロード、インストールするプラグインのリスト。インターネットアクセス可能な場合はこちらにプラグインを定義する。
+    - `plugins` ディレクトリ : ネットワーク的に隔離された環境の場合にインストールするプラグインファイルを格納する。 [Plugins Index](https://plugins.jenkins.io/) から事前に取得する。
+
+    ```
+    oc apply -f custom-jenkins/custom-jenkins-build.yaml
+    oc start-build custom-jenkins
+    ```
+
+    作成したカスタム　Jenkins イメージで Jenkins Server を起動します。
+
+    ```
+    oc process openshift//jenkins-persistent-monitored \
+      -p VOLUME_CAPACITY=2Gi \
+      -p NAMESPACE=pipeline-environment \
+      -p JENKINS_IMAGE_STREAM_TAG=custom-jenkins:latest \
+      | oc -n pipeline-environment apply -f -
+    ```
+
+### Resolve Dependency of Jenkins Plugin
+
+ネットワーク的に隔離された環境の場合、インストールしたいプラグインおよびその依存プラグインも含め Git リポジトリ上にプラグインファイルを格納しておく必要があります。
+
+以下の方法である程度格納が必要な依存プラグインを確認することができます。
+
+1. [Plugins Index](https://plugins.jenkins.io/) でインストールしたいプラグインを検索
+2. プラグインのページの `Dependencies` タブで `Required` となっているプラグインを確認
+3. Jenkins Server イメージのリポジトリ ([openshift/jenkins](https://github.com/openshift/jenkins)) で `release-<version>` ブランチに切り替え、`/2/contrib/openshift/` 配下の `base-plugins.txt` および `bundle-plugins.txt`　を確認し、依存プラグインの該当バージョンがインストール済みであれば取得不要
+4. インストール済みでない場合 `plugins.txt` に追加し、 `plugins` ディレクトリにファイルを格納する
+    - この時プラグインのリポジトリ上で `pom.xml` の `<jenkins.version>` を確認し、 Jenkins Server イメージがバージョンの要件を満たしているか確認する。満たさない場合プラグインのリポジトリ上でリリースタグを遡り、要件を満たすバージョンを確認する。
+    - Jenkins Server イメージのバージョンは Jenkins Server イメージのリポジトリの `/2/contrib/openshift/` 配下の `jenkins-version.txt` で確認できる。
+5. 追加した依存プラグインの依存プラグインに対して 2-4 を繰り返す
 
 ### Accessing a Jenkins service
 
@@ -48,7 +105,7 @@ BuildConfig および ImageStream は [custom-jenkins-agent-sidecar-build.yaml](
 BuildConfig では Docker Strategy により [Dockerfile](Dockerfile) でビルドを行います。
 
 ```
-oc -n pipeline-environment apply -f custom-jenkins-agent-sidecar-build.yaml
+oc -n pipeline-environment apply -f custom-agent/custom-jenkins-agent-sidecar-build.yaml
 oc -n pipeline-environment start-build custom-jenkins-agent-sidecar
 ```
 

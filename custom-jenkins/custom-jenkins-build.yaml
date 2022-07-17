@@ -1,0 +1,28 @@
+---
+kind: BuildConfig
+apiVersion: build.openshift.io/v1
+metadata:
+  name: custom-jenkins
+spec:
+  source:
+    git:
+      uri: https://github.com/k-srkw/sidecar-pattern-jenkins-agent-for-java.git
+      ref: main
+    contextDir: custom-jenkins 
+    type: Git
+  strategy:
+    sourceStrategy:
+      from:
+        kind: ImageStreamTag
+        name: jenkins-rhel8:v4.10.0
+        namespace: pipeline-environment
+    type: Source
+  output:
+    to:
+      kind: ImageStreamTag
+      name: custom-jenkins:latest
+---
+kind: ImageStream
+apiVersion: image.openshift.io/v1
+metadata:
+  name: custom-jenkins
