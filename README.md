@@ -53,7 +53,7 @@ oc import-image ocp-tools-4/jenkins-rhel8:v4.10.0 --from=registry.redhat.io/ocp-
     この Git リポジトリ上からプラグインを取得します。このリポジトリでは例として [Pipeline Stage View Plugin](https://plugins.jenkins.io/pipeline-stage-view/#documentation) をインストールします。
     
     - `plugins.txt` : Jenkins Update Site からダウンロード、インストールするプラグインのリスト。インターネットアクセス可能な場合はこちらにプラグインを定義する。
-    - `plugins` ディレクトリ : ネットワーク的に隔離された環境の場合にインストールするプラグインファイルを格納する。 [Plugins Index](https://plugins.jenkins.io/) から事前に取得する。
+    - `plugins` ディレクトリ : ネットワーク的に隔離された環境の場合にインストールするプラグインファイルを格納する。 [Plugins Index](https://plugins.jenkins.io/) から事前に取得する。プラグインのアーカイブ形式は `.jpi` を前提とする。
 
     ```
     oc apply -f custom-jenkins/custom-jenkins-build.yaml
@@ -74,17 +74,18 @@ oc import-image ocp-tools-4/jenkins-rhel8:v4.10.0 --from=registry.redhat.io/ocp-
 
 ネットワーク的に隔離された環境の場合、インストールしたいプラグインおよびその依存プラグインも含め Git リポジトリ上にプラグインファイルを格納しておく必要があります。
 
-最も推奨する方法は事前にインターネットアクセス可能な環境で `plugins.txt` を作成し、ビルド時ログの `Installed plugins:` 以下に出力される依存プラグインを確認後、それをもとに事前ダウンロードしておく方法です。 `plugins.txt` に定義したプラグインのリストをもとに Jenkins Update Site からプラグインを取得する際、プラグインの依存関係を解決自動で取得します。
+最も推奨する方法は事前にインターネットアクセス可能な OpenShift クラスタ環境で `plugins.txt` を作成し、ビルド時ログの `Installed plugins:` 以下に出力される依存プラグインを確認後、それをもとに事前ダウンロードしておく方法です。 `plugins.txt` に定義したプラグインのリストをもとに Jenkins Update Site からプラグインを取得する際、プラグインの依存関係を解決し自動で取得します。
 
 以下の方法である程度格納が必要な依存プラグインを確認することができます。
 
 1. [Plugins Index](https://plugins.jenkins.io/) でインストールしたいプラグインを検索
 2. プラグインのページの `Dependencies` タブで `Required` となっているプラグインを確認
 3. Jenkins Server イメージのリポジトリ ([openshift/jenkins](https://github.com/openshift/jenkins)) で `release-<version>` ブランチに切り替え、`/2/contrib/openshift/` 配下の `base-plugins.txt` および `bundle-plugins.txt`　を確認し、依存プラグインの該当バージョンがインストール済みであれば取得不要
-4. インストール済みでない場合 `plugins.txt` に追加し、 `plugins` ディレクトリにファイルを格納する
-    - この時プラグインのリポジトリ上で `pom.xml` の `<jenkins.version>` を確認し、 Jenkins Server イメージがバージョンの要件を満たしているか確認する。満たさない場合プラグインのリポジトリ上でリリースタグを遡り、要件を満たすバージョンを確認する。
+4. インストール済みでない場合 Git リポジトリの `plugins` ディレクトリにファイルを格納する
+    - この時該当プラグインの Git リポジトリ上で `pom.xml` の `<jenkins.version>` を確認し、 Jenkins Server イメージがバージョンの要件を満たしているか確認する。満たさない場合プラグインのリポジトリ上でリリースタグを遡り、要件を満たすバージョンを確認する。
     - Jenkins Server イメージのバージョンは Jenkins Server イメージのリポジトリの `/2/contrib/openshift/` 配下の `jenkins-version.txt` で確認できる。
 5. 追加した依存プラグインの依存プラグインに対して 2-4 を繰り返す
+6. S2I ビルド時に実行する [assemble](https://github.com/openshift/jenkins/blob/master/2/contrib/s2i/assemble) および [run](https://github.com/openshift/jenkins/blob/master/2/contrib/s2i/run) スクリプトはプラグインのアーカイブ形式として `.jpi` を前提とするため、 `*.hpi` から `*.jpi` にリネームする
 
 ### Accessing a Jenkins service
 
